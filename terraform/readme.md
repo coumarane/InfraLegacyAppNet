@@ -58,6 +58,15 @@ terraform/
 
 From the repo root:
 
+Create tfvars in environments/dev or prod and call it dev.tfvars for dev, and add these values:
+```bash
+location          = "westeurope"
+environment       = "dev"
+project_name      = "legacyapp"
+vm_admin_username = "azureadmin"
+vm_admin_password = "MyPassword123!"
+```
+
 ```bash
 cp global/*.tf environments/dev/
 cp global/*.tf environments/prod/
