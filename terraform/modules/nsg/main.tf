@@ -2,8 +2,7 @@ resource "azurerm_network_security_group" "this" {
   name                = var.name
   location            = var.location
   resource_group_name = var.resource_group_name
-
-  tags = var.tags
+  tags                = var.tags
 }
 
 resource "azurerm_network_security_rule" "this" {
@@ -11,14 +10,13 @@ resource "azurerm_network_security_rule" "this" {
     for rule in var.security_rules : rule.name => rule
   }
 
-  name                        = each.value.name
-  priority                    = each.value.priority
-  direction                   = each.value.direction
-  access                      = each.value.access
-  protocol                    = each.value.protocol
-  resource_group_name         = var.resource_group_name
-  network_security_group_name = azurerm_network_security_group.this.name
-
+  name                         = each.value.name
+  priority                     = each.value.priority
+  direction                    = each.value.direction
+  access                       = each.value.access
+  protocol                     = each.value.protocol
+  resource_group_name          = var.resource_group_name
+  network_security_group_name  = azurerm_network_security_group.this.name
   source_port_range            = try(each.value.source_port_range, null)
   source_port_ranges           = try(each.value.source_port_ranges, null)
   destination_port_range       = try(each.value.destination_port_range, null)
@@ -27,14 +25,12 @@ resource "azurerm_network_security_rule" "this" {
   source_address_prefixes      = try(each.value.source_address_prefixes, null)
   destination_address_prefix   = try(each.value.destination_address_prefix, null)
   destination_address_prefixes = try(each.value.destination_address_prefixes, null)
-
-  description = try(each.value.description, null)
+  description                  = try(each.value.description, null)
 }
 
 resource "azurerm_subnet_network_security_group_association" "this" {
-  count = var.subnet_id != null ? 1 : 0
+  count = var.associate_with_subnet ? 1 : 0
 
   subnet_id                 = var.subnet_id
   network_security_group_id = azurerm_network_security_group.this.id
 }
-

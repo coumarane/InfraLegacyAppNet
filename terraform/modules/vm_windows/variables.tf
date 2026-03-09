@@ -39,6 +39,18 @@ variable "create_public_ip" {
   default = false
 }
 
+variable "bootstrap_file_uris" {
+  description = "URIs to scripts that prepare the VM (e.g., install .NET 3.5/IIS)."
+  type        = list(string)
+  default     = []
+}
+
+variable "bootstrap_command" {
+  description = "Command executed by Custom Script Extension after downloading bootstrap_file_uris."
+  type        = string
+  default     = "powershell -ExecutionPolicy Bypass -Command \"Install-WindowsFeature NET-Framework-Core,Web-Server,Web-Asp-Net,Web-Asp-Net45,Web-WebSockets,Web-Mgmt-Tools\""
+}
+
 variable "encryption_at_host_enabled" {
   type    = bool
   default = false

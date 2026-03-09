@@ -49,6 +49,7 @@ module "nsg_app" {
   location            = var.location
   resource_group_name = module.resource_group.name
   subnet_id           = module.subnet_app.id
+  associate_with_subnet = true
   tags                = local.common_tags
 
   security_rules = [

@@ -13,6 +13,17 @@ variable "resource_group_name" {
 variable "subnet_id" {
   type    = string
   default = null
+
+  validation {
+    condition     = !var.associate_with_subnet || (var.subnet_id != null && var.subnet_id != "")
+    error_message = "subnet_id must be provided when associate_with_subnet is true."
+  }
+}
+
+variable "associate_with_subnet" {
+  type        = bool
+  description = "Whether to associate this NSG with the provided subnet_id."
+  default     = true
 }
 
 variable "security_rules" {

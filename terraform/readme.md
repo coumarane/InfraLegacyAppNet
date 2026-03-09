@@ -56,10 +56,15 @@ terraform/
 
 ## Usage
 
+```bash
+az login
+```
+
 From the repo root:
 
-Create dev.tfvars in environments/dev for dev, and add these values:
+- Create dev.tfvars in environments/dev for dev, and add these values:
 ```bash
+subscription_id   = "12345"
 location          = "westeurope"
 environment       = "dev"
 project_name      = "legacyapp"
@@ -67,13 +72,46 @@ vm_admin_username = "azureadmin"
 vm_admin_password = "MyPassword123!"
 ```
 
+Add in dev.backend.hcl:
 ```bash
-cp global/*.tf environments/dev/
-cp global/*.tf environments/prod/
+resource_group_name  = "rg-terraform-dev"
+storage_account_name = "terraformstatedev"
+container_name       = "tfstatedev"
+key                  = "dev.terraform.tfstate"
+```
 
+Run the code
+```bash
 cd terraform/environments/dev
-terraform init
+terraform init -reconfigure -backend-config=dev.backend.hcl
 terraform validate
 terraform plan -var-file="dev.tfvars"
 # terraform apply -var-file="dev.tfvars"
+```
+
+- For prod, create prod.tfvars in environments/prod for prod, and add these values:
+```bash
+subscription_id   = "6789"
+location          = "westeurope"
+environment       = "prod"
+project_name      = "legacyapp"
+vm_admin_username = "azureadmin"
+vm_admin_password = "MyPassword123!"
+```
+
+Add in prod.backend.hcl:
+```bash
+resource_group_name  = "rg-terraform-prod"
+storage_account_name = "terraformstateprod"
+container_name       = "tfstateprod"
+key                  = "prod.terraform.tfstate"
+```
+
+Run the code
+```bash
+cd terraform/environments/prod
+terraform init
+terraform validate
+terraform plan -var-file="prod.tfvars"
+# terraform apply -var-file="prod.tfvars"
 ```

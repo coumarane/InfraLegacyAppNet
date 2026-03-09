@@ -27,7 +27,7 @@ resource "azurerm_network_interface" "this" {
 
 resource "azurerm_windows_virtual_machine" "this" {
   name                  = var.name
-  computer_name         = var.computer_name != null ? var.computer_name : var.name
+  computer_name         = var.computer_name != null ? var.computer_name : substr(replace(var.name, "-", ""), 0, 15)
   location              = var.location
   resource_group_name   = var.resource_group_name
   size                  = var.size
@@ -36,7 +36,7 @@ resource "azurerm_windows_virtual_machine" "this" {
   network_interface_ids = [azurerm_network_interface.this.id]
 
   provision_vm_agent         = true
-  enable_automatic_updates   = true
+  automatic_updates_enabled  = true
   patch_mode                 = "AutomaticByOS"
   encryption_at_host_enabled = var.encryption_at_host_enabled
 
@@ -58,4 +58,24 @@ resource "azurerm_windows_virtual_machine" "this" {
   }
 
   tags = var.tags
+}
+
+resource "azurerm_virtual_machine_extension" "bootstrap" {
+  count = var.bootstrap_command != "" ? 1 : 0
+
+  name                       = "${var.name}-bootstrap"
+  virtual_machine_id         = azurerm_windows_virtual_machine.this.id
+  publisher                  = "Microsoft.Compute"
+  type                       = "CustomScriptExtension"
+  type_handler_version       = "1.10"
+  automatic_upgrade_enabled  = true
+  auto_upgrade_minor_version = true
+
+  settings = jsonencode({
+    fileUris = var.bootstrap_file_uris
+  })
+
+  protected_settings = jsonencode({
+    commandToExecute = var.bootstrap_command
+  })
 }
