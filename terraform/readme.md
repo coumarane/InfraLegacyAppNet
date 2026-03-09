@@ -58,7 +58,7 @@ terraform/
 
 From the repo root:
 
-Create tfvars in environments/dev or prod and call it dev.tfvars for dev, and add these values:
+Create dev.tfvars in environments/dev for dev, and add these values:
 ```bash
 location          = "westeurope"
 environment       = "dev"
