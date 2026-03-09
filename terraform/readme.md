@@ -60,7 +60,11 @@ From the repo root:
 
 ```bash
 cp global/*.tf environments/dev/
-cd environments/dev
+cp global/*.tf environments/prod/
+
+cd terraform/environments/dev
 terraform init
-terraform plan
-terraform apply
+terraform validate
+terraform plan -var-file="dev.tfvars"
+# terraform apply -var-file="dev.tfvars"
+```
