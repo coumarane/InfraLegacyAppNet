@@ -8,7 +8,7 @@ resource "azurerm_log_analytics_workspace" "this" {
   tags = var.tags
 
   # Prevent accidental deletion of the Log Analytics Workspace
-  lifecycle {
-    prevent_destroy = true
-  }
+  # lifecycle {
+  #   prevent_destroy = true
+  # }
 }

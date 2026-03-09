@@ -54,11 +54,17 @@ terraform/
 
 ```
 
-## Usage
+## Prerequisites
 
 ```bash
 az login
 ```
+
+Create manually a stoarge account to save the terrafom state
+
+
+
+## Usage
 
 From the repo root:
 
@@ -87,6 +93,8 @@ terraform init -reconfigure -backend-config=dev.backend.hcl
 terraform validate
 terraform plan -var-file="dev.tfvars"
 # terraform apply -var-file="dev.tfvars"
+# terraform destroy -var-file="dev.tfvars"
+
 ```
 
 - For prod, create prod.tfvars in environments/prod for prod, and add these values:

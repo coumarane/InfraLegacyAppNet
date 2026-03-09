@@ -68,7 +68,8 @@ resource "azurerm_virtual_machine_extension" "bootstrap" {
   publisher                  = "Microsoft.Compute"
   type                       = "CustomScriptExtension"
   type_handler_version       = "1.10"
-  automatic_upgrade_enabled  = true
+  # CustomScriptExtension does not support automatic upgrades
+  automatic_upgrade_enabled  = false
   auto_upgrade_minor_version = true
 
   settings = jsonencode({

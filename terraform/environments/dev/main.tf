@@ -45,12 +45,12 @@ module "subnet_app" {
 module "nsg_app" {
   source = "../../modules/nsg"
 
-  name                = local.nsg_name
-  location            = var.location
-  resource_group_name = module.resource_group.name
-  subnet_id           = module.subnet_app.id
+  name                  = local.nsg_name
+  location              = var.location
+  resource_group_name   = module.resource_group.name
+  subnet_id             = module.subnet_app.id
   associate_with_subnet = true
-  tags                = local.common_tags
+  tags                  = local.common_tags
 
   security_rules = [
     {
