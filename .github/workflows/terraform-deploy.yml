@@ -1,0 +1,213 @@
+name: 'Terraform Deploy'
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'terraform/**'
+      - '.github/workflows/terraform-deploy.yml'
+  workflow_dispatch:
+
+env:
+  TF_VERSION: '1.5.0'
+  WORKING_DIR: './terraform'
+
+permissions:
+  contents: read
+  pull-requests: write
+  id-token: write
+
+jobs:
+  plan-dev:
+    name: 'Plan - Dev Environment'
+    runs-on: ubuntu-latest
+    env:
+      TF_ENV: dev
+      ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
+      ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+      ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform Format Check
+        id: fmt
+        run: terraform fmt -check -recursive
+        working-directory: ${{ env.WORKING_DIR }}
+
+      - name: Terraform Init
+        id: init
+        run: terraform init -backend-config="environments/${{ env.TF_ENV }}/${{ env.TF_ENV }}.backend.hcl"
+        working-directory: ${{ env.WORKING_DIR }}
+
+      - name: Terraform Validate
+        id: validate
+        run: terraform validate
+        working-directory: ${{ env.WORKING_DIR }}
+
+      - name: Terraform Plan
+        id: plan
+        run: terraform plan -var-file="environments/${{ env.TF_ENV }}/${{ env.TF_ENV }}.tfvars" -out=tfplan_${{ env.TF_ENV }}
+        working-directory: ${{ env.WORKING_DIR }}
+
+      - name: Upload Plan Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan-${{ env.TF_ENV }}
+          path: ${{ env.WORKING_DIR }}/tfplan_${{ env.TF_ENV }}
+          retention-days: 5
+
+      - name: Comment Plan on Workflow
+        uses: actions/github-script@v6
+        if: always()
+        with:
+          script: |
+            const { execSync } = require('child_process');
+            const planFile = '${{ env.WORKING_DIR }}/tfplan_${{ env.TF_ENV }}';
+            let planOutput = 'No plan output available';
+            try {
+              planOutput = execSync(`terraform show -no-color ${planFile}`).toString().slice(0, 65000);
+            } catch (e) {
+              planOutput = `Error reading plan: ${e.message}`;
+            }
+            core.notice(`Dev Environment Plan [${{ job.status }}]\n\n${planOutput}`);
+
+  apply-dev:
+    name: 'Apply - Dev Environment'
+    needs: plan-dev
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    env:
+      TF_ENV: dev
+      ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
+      ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+      ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Download Plan Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: tfplan-${{ env.TF_ENV }}
+          path: ${{ env.WORKING_DIR }}
+
+      - name: Terraform Init
+        run: terraform init -backend-config="environments/${{ env.TF_ENV }}/${{ env.TF_ENV }}.backend.hcl"
+        working-directory: ${{ env.WORKING_DIR }}
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve tfplan_${{ env.TF_ENV }}
+        working-directory: ${{ env.WORKING_DIR }}
+
+      - name: Capture Outputs
+        id: outputs
+        run: terraform output -json
+        working-directory: ${{ env.WORKING_DIR }}
+
+  plan-prod:
+    name: 'Plan - Prod Environment'
+    needs: apply-dev
+    runs-on: ubuntu-latest
+    env:
+      TF_ENV: prod
+      ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
+      ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+      ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform Format Check
+        id: fmt
+        run: terraform fmt -check -recursive
+        working-directory: ${{ env.WORKING_DIR }}
+
+      - name: Terraform Init
+        id: init
+        run: terraform init -backend-config="environments/${{ env.TF_ENV }}/${{ env.TF_ENV }}.backend.hcl"
+        working-directory: ${{ env.WORKING_DIR }}
+
+      - name: Terraform Validate
+        id: validate
+        run: terraform validate
+        working-directory: ${{ env.WORKING_DIR }}
+
+      - name: Terraform Plan
+        id: plan
+        run: terraform plan -var-file="environments/${{ env.TF_ENV }}/${{ env.TF_ENV }}.tfvars" -out=tfplan_${{ env.TF_ENV }}
+        working-directory: ${{ env.WORKING_DIR }}
+
+      - name: Upload Plan Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan-${{ env.TF_ENV }}
+          path: ${{ env.WORKING_DIR }}/tfplan_${{ env.TF_ENV }}
+          retention-days: 5
+
+  approve-prod:
+    name: 'Approve - Prod Deployment'
+    needs: plan-prod
+    runs-on: ubuntu-latest
+    environment: prod-approve
+    steps:
+      - name: Wait for Approval
+        run: echo "Prod deployment approved - proceeding with apply"
+
+  apply-prod:
+    name: 'Apply - Prod Environment'
+    needs: approve-prod
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    env:
+      TF_ENV: prod
+      ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
+      ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+      ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Download Plan Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: tfplan-${{ env.TF_ENV }}
+          path: ${{ env.WORKING_DIR }}
+
+      - name: Terraform Init
+        run: terraform init -backend-config="environments/${{ env.TF_ENV }}/${{ env.TF_ENV }}.backend.hcl"
+        working-directory: ${{ env.WORKING_DIR }}
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve tfplan_${{ env.TF_ENV }}
+        working-directory: ${{ env.WORKING_DIR }}
+
+      - name: Capture Outputs
+        id: outputs
+        run: terraform output -json
+        working-directory: ${{ env.WORKING_DIR }}

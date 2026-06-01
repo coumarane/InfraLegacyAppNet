@@ -1,0 +1,95 @@
+name: 'Terraform Validate PR'
+
+on:
+  pull_request:
+    paths:
+      - 'terraform/**'
+      - '.github/workflows/terraform-validate-pr.yml'
+
+env:
+  TF_VERSION: '1.5.0'
+  WORKING_DIR: './terraform'
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  validate:
+    name: 'Validate Terraform'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform Format Check
+        id: fmt
+        run: terraform fmt -check -recursive
+        working-directory: ${{ env.WORKING_DIR }}
+        continue-on-error: true
+
+      - name: Terraform Init
+        id: init
+        if: always()
+        run: terraform init -backend=false
+        working-directory: ${{ env.WORKING_DIR }}
+
+      - name: Terraform Validate
+        id: validate
+        if: always()
+        run: terraform validate
+        working-directory: ${{ env.WORKING_DIR }}
+
+      - name: TFLint Installation
+        if: always()
+        uses: terraform-linters/setup-tflint@v3
+
+      - name: Init TFLint
+        if: always()
+        working-directory: ${{ env.WORKING_DIR }}
+        run: tflint --init
+
+      - name: Run TFLint
+        id: tflint
+        if: always()
+        working-directory: ${{ env.WORKING_DIR }}
+        run: tflint -f compact
+        continue-on-error: true
+
+      - name: Comment on PR
+        if: always()
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fmt = '${{ steps.fmt.outcome }}' === 'success' ? '✅' : '❌';
+            const init = '${{ steps.init.outcome }}' === 'success' ? '✅' : '❌';
+            const validate = '${{ steps.validate.outcome }}' === 'success' ? '✅' : '❌';
+            const tflint = '${{ steps.tflint.outcome }}' === 'success' ? '✅' : '❌';
+
+            const comment = '## Terraform Validation Results\n\n' +
+              '| Check | Status |\n' +
+              '|-------|--------|\n' +
+              `| Format Check | ${fmt} |\n` +
+              `| Init | ${init} |\n` +
+              `| Validate | ${validate} |\n` +
+              `| TFLint | ${tflint} |`;
+
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+      - name: Enforce Required Checks
+        if: always()
+        run: |
+          if [ "${{ steps.fmt.outcome }}" == "failure" ] || [ "${{ steps.validate.outcome }}" == "failure" ]; then
+            echo "Required checks failed: fmt=${{ steps.fmt.outcome }}, validate=${{ steps.validate.outcome }}"
+            exit 1
+          fi

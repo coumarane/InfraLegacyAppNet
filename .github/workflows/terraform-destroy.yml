@@ -1,0 +1,55 @@
+name: 'Terraform Destroy'
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to destroy (dev or prod)'
+        required: true
+        type: choice
+        options:
+          - dev
+          - prod
+
+env:
+  TF_VERSION: '1.5.0'
+  WORKING_DIR: './terraform'
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  destroy:
+    name: 'Destroy - ${{ github.event.inputs.environment }} Environment'
+    runs-on: ubuntu-latest
+    environment: destroy-${{ github.event.inputs.environment }}
+    env:
+      TF_ENV: ${{ github.event.inputs.environment }}
+      ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
+      ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+      ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform Init
+        run: terraform init -backend-config="environments/${{ env.TF_ENV }}/${{ env.TF_ENV }}.backend.hcl"
+        working-directory: ${{ env.WORKING_DIR }}
+
+      - name: Terraform Plan Destroy
+        run: terraform plan -destroy -var-file="environments/${{ env.TF_ENV }}/${{ env.TF_ENV }}.tfvars" -out=tfplan_destroy
+        working-directory: ${{ env.WORKING_DIR }}
+
+      - name: Terraform Destroy
+        run: terraform apply -auto-approve tfplan_destroy
+        working-directory: ${{ env.WORKING_DIR }}
+
+      - name: Destruction Complete
+        run: echo "Infrastructure in ${{ env.TF_ENV }} has been destroyed"
